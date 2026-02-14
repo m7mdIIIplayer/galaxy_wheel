@@ -186,25 +186,26 @@
   <audio id="win-sound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_41a0d6edbe.mp3?filename=win-celebration-121114.mp3"></audio>
 
   <script>
-    // نفس الكود مع تعديل ألوان العجلة فقط (أبيض / أرجواني)
+    // إعدادات Telegram WebApp
     const tg = window.Telegram?.WebApp;
     if (tg) tg.expand();
 
     const prizes = ["حظ أوفر","5,000","10,000","15,000","25,000","بونوص 10%"];
-    // ألوان جديدة: أبيض (#FFFFFF) وأرجواني غامق (#8A2BE2) فقط
     const colors = ["#FFFFFF", "#8A2BE2", "#FFFFFF", "#8A2BE2", "#FFFFFF", "#8A2BE2", "#FFFFFF", "#8A2BE2", "#FFFFFF", "#8A2BE2"];
     
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const container = document.getElementById("wheel-container");
+    const resultDiv = document.getElementById("result");
+    const spinSound = document.getElementById("spin-sound");
+    const winSound = document.getElementById("win-sound");
 
-    function sizeCanvas() {
-      const s = Math.min(container.clientWidth, container.clientHeight);
-      canvas.width = s;
-      canvas.height = s;
-      drawWheel();
-    }
+    // قراءة الباراميترات من الرابط
+    const params = new URLSearchParams(location.search);
+    const result = params.get("result") || "0";
+    const timeRemaining = parseInt(params.get("time_remaining")) || 0;
 
+    // دالة لرسم العجلة
     function drawWheel() {
       const r = canvas.width / 2;
       const arc = (2 * Math.PI) / prizes.length;
@@ -227,44 +228,79 @@
       }
     }
 
+    function sizeCanvas() {
+      const s = Math.min(container.clientWidth, container.clientHeight);
+      canvas.width = s;
+      canvas.height = s;
+      drawWheel();
+    }
+
     window.addEventListener('resize', sizeCanvas);
     sizeCanvas();
 
-    const resultDiv = document.getElementById("result");
-    const params = new URLSearchParams(location.search);
-    const result = params.get("result") || "0";
-
-    const getPrizeIndex = (res) => {
-      switch (res) {
-        case "0": return 0;
-        case "5000": return 1;
-        case "10000": return 2;
-        case "15000": return 3;
-        case "25000": return 4;
-
+    // إذا كان هناك وقت متبقي (أي استخدم العجلة اليوم)
+    if (timeRemaining > 0) {
+      // عرض مؤقت العد التنازلي
+      function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) {
+          return `${h} ساعة و ${m} دقيقة`;
+        } else if (m > 0) {
+          return `${m} دقيقة و ${s} ثانية`;
+        } else {
+          return `${s} ثانية`;
+        }
       }
-    };
 
-    const prizeIndex = getPrizeIndex(result);
-    const sliceDeg = 360 / prizes.length;
-    const stopAngle = (360 - (prizeIndex * sliceDeg + sliceDeg / 2) + 3) % 360;
-    const finalRotation = 360 * 5 + stopAngle;
+      // تحديث النتيجة كل ثانية
+      let remaining = timeRemaining;
+      resultDiv.innerHTML = `⏳ يمكنك الدوران بعد: ${formatTime(remaining)}`;
 
-    const spinSound = document.getElementById("spin-sound");
-    const winSound = document.getElementById("win-sound");
+      const timer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(timer);
+          resultDiv.innerHTML = `🔄 يمكنك الدوران الآن! اضغط على العجلة`; // يمكن إضافة زر إعادة تحميل إذا أردت
+        } else {
+          resultDiv.innerHTML = `⏳ يمكنك الدوران بعد: ${formatTime(remaining)}`;
+        }
+      }, 1000);
 
-    setTimeout(() => {
-      spinSound.play();
-      canvas.style.transform = `rotate(${finalRotation}deg)`;
-    }, 400);
+      // تعطيل أي أصوات أو دوران
+      // لا نقوم بتشغيل أي sound
+    } else {
+      // لا وقت متبقي → نقوم بتشغيل العجلة بشكل طبيعي
+      const getPrizeIndex = (res) => {
+        switch (res) {
+          case "0": return 0;
+          case "5000": return 1;
+          case "10000": return 2;
+          case "15000": return 3;
+          case "25000": return 4;
+          default: return 0;
+        }
+      };
 
-    setTimeout(() => {
-      winSound.play();
-      resultDiv.innerHTML =
-        prizeIndex === 0
-          ? `😢 <b>حظ أوفر!</b> حاول مرة أخرى.`
-          : `🎉 مبروك! ربحت <b>${prizes[prizeIndex]}</b> 🏆`;
-    }, 6500);
+      const prizeIndex = getPrizeIndex(result);
+      const sliceDeg = 360 / prizes.length;
+      const stopAngle = (360 - (prizeIndex * sliceDeg + sliceDeg / 2) + 3) % 360;
+      const finalRotation = 360 * 5 + stopAngle;
+
+      setTimeout(() => {
+        spinSound.play();
+        canvas.style.transform = `rotate(${finalRotation}deg)`;
+      }, 400);
+
+      setTimeout(() => {
+        winSound.play();
+        resultDiv.innerHTML =
+          prizeIndex === 0
+            ? `😢 <b>حظ أوفر!</b> حاول مرة أخرى.`
+            : `🎉 مبروك! ربحت <b>${prizes[prizeIndex]}</b> 🏆`;
+      }, 6500);
+    }
   </script>
 </body>
 </html>
